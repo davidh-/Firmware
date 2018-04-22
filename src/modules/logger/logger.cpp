@@ -402,7 +402,7 @@ Logger::Logger(LogWriter::Backend backend, size_t buffer_size, uint32_t log_inte
 	_sdlog_profile_handle = param_find("SDLOG_PROFILE");
 
 	if (poll_topic_name) {
-		const orb_metadata **topics = orb_get_topics();
+		const orb_metadata *const*topics = orb_get_topics();
 
 		for (size_t i = 0; i < orb_topics_count(); i++) {
 			if (strcmp(poll_topic_name, topics[i]->o_name) == 0) {
@@ -478,7 +478,7 @@ LoggerSubscription* Logger::add_topic(const orb_metadata *topic)
 
 bool Logger::add_topic(const char *name, unsigned interval)
 {
-	const orb_metadata **topics = orb_get_topics();
+	const orb_metadata *const*topics = orb_get_topics();
 	LoggerSubscription *subscription = nullptr;
 
 	for (size_t i = 0; i < orb_topics_count(); i++) {
@@ -640,11 +640,8 @@ void Logger::add_default_topics()
 	add_topic("mc_virtual_attitude_setpoint");
 	add_topic("multirotor_motor_limits");
 	add_topic("offboard_control_mode");
-	add_topic("parameter_update");
 	add_topic("time_offset");
-	add_topic("tune_control");
 	add_topic("vehicle_attitude_groundtruth", 10);
-	add_topic("vehicle_command_ack");
 	add_topic("vehicle_global_position_groundtruth", 100);
 	add_topic("vehicle_local_position_groundtruth", 100);
 	add_topic("vehicle_roi");
@@ -680,11 +677,12 @@ void Logger::add_estimator_replay_topics()
 	add_topic("airspeed");
 	add_topic("distance_sensor");
 	add_topic("optical_flow");
-	add_topic("sensor_baro");
 	add_topic("sensor_combined");
 	add_topic("sensor_selection");
+	add_topic("vehicle_air_data");
 	add_topic("vehicle_gps_position");
 	add_topic("vehicle_land_detected");
+	add_topic("vehicle_magnetometer");
 	add_topic("vehicle_status");
 	add_topic("vehicle_vision_attitude");
 	add_topic("vehicle_vision_position");
@@ -957,9 +955,7 @@ void Logger::run()
 		if (ret == 0 && vehicle_status_updated) {
 			vehicle_status_s vehicle_status;
 			orb_copy(ORB_ID(vehicle_status), vehicle_status_sub, &vehicle_status);
-			bool armed = (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) ||
-				     (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED_ERROR) ||
-				     _arm_override;
+			bool armed = (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) || _arm_override;
 
 			if (_was_armed != armed && !_log_until_shutdown) {
 				_was_armed = armed;
@@ -1625,7 +1621,7 @@ void Logger::write_formats()
 {
 	_writer.lock();
 	ulog_message_format_s msg = {};
-	const orb_metadata **topics = orb_get_topics();
+	const orb_metadata *const*topics = orb_get_topics();
 
 	//write all known formats
 	for (size_t i = 0; i < orb_topics_count(); i++) {
@@ -1803,6 +1799,11 @@ void Logger::write_version()
 	}
 
 	write_info("ver_hw", px4_board_name());
+	const char *board_sub_type = px4_board_sub_type();
+
+	if (board_sub_type && board_sub_type[0]) {
+		write_info("ver_hw_subtype", board_sub_type);
+	}
 	write_info("sys_name", "PX4");
 	write_info("sys_os_name", px4_os_name());
 	const char *os_version = px4_os_version_string();

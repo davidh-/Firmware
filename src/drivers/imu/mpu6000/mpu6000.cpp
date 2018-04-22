@@ -56,6 +56,7 @@
  */
 
 #include <px4_config.h>
+#include <ecl/geo/geo.h>
 
 #include <sys/types.h>
 #include <stdint.h>
@@ -1505,7 +1506,7 @@ MPU6000::ioctl(struct file *filp, int cmd, unsigned long arg)
 		return set_accel_range(arg);
 
 	case ACCELIOCGRANGE:
-		return (unsigned long)((_accel_range_m_s2) / MPU6000_ONE_G + 0.5f);
+		return (unsigned long)((_accel_range_m_s2) / CONSTANTS_ONE_G + 0.5f);
 
 	case ACCELIOCSELFTEST:
 		return accel_self_test();
@@ -1645,8 +1646,8 @@ MPU6000::set_accel_range(unsigned max_g_in)
 		case MPU6000_REV_C4:
 		case MPU6000_REV_C5:
 			write_checked_reg(MPUREG_ACCEL_CONFIG, 1 << 3);
-			_accel_range_scale = (MPU6000_ONE_G / 4096.0f);
-			_accel_range_m_s2 = 8.0f * MPU6000_ONE_G;
+			_accel_range_scale = (CONSTANTS_ONE_G / 4096.0f);
+			_accel_range_m_s2 = 8.0f * CONSTANTS_ONE_G;
 			return OK;
 		}
 	}
@@ -1677,8 +1678,8 @@ MPU6000::set_accel_range(unsigned max_g_in)
 	}
 
 	write_checked_reg(MPUREG_ACCEL_CONFIG, afs_sel << 3);
-	_accel_range_scale = (MPU6000_ONE_G / lsb_per_g);
-	_accel_range_m_s2 = max_accel_g * MPU6000_ONE_G;
+	_accel_range_scale = (CONSTANTS_ONE_G / lsb_per_g);
+	_accel_range_m_s2 = max_accel_g * CONSTANTS_ONE_G;
 
 	return OK;
 }
@@ -2456,16 +2457,7 @@ test(enum MPU6000_BUS busid)
 		err(1, "immediate acc read failed");
 	}
 
-	warnx("single read");
-	warnx("time:     %lld", a_report.timestamp);
-	warnx("acc  x:  \t%8.4f\tm/s^2", (double)a_report.x);
-	warnx("acc  y:  \t%8.4f\tm/s^2", (double)a_report.y);
-	warnx("acc  z:  \t%8.4f\tm/s^2", (double)a_report.z);
-	warnx("acc  x:  \t%d\traw 0x%0x", (short)a_report.x_raw, (unsigned short)a_report.x_raw);
-	warnx("acc  y:  \t%d\traw 0x%0x", (short)a_report.y_raw, (unsigned short)a_report.y_raw);
-	warnx("acc  z:  \t%d\traw 0x%0x", (short)a_report.z_raw, (unsigned short)a_report.z_raw);
-	warnx("acc range: %8.4f m/s^2 (%8.4f g)", (double)a_report.range_m_s2,
-	      (double)(a_report.range_m_s2 / MPU6000_ONE_G));
+	print_message(a_report);
 
 	/* do a simple demand read */
 	sz = read(fd_gyro, &g_report, sizeof(g_report));
@@ -2475,17 +2467,7 @@ test(enum MPU6000_BUS busid)
 		err(1, "immediate gyro read failed");
 	}
 
-	warnx("gyro x: \t% 9.5f\trad/s", (double)g_report.x);
-	warnx("gyro y: \t% 9.5f\trad/s", (double)g_report.y);
-	warnx("gyro z: \t% 9.5f\trad/s", (double)g_report.z);
-	warnx("gyro x: \t%d\traw", (int)g_report.x_raw);
-	warnx("gyro y: \t%d\traw", (int)g_report.y_raw);
-	warnx("gyro z: \t%d\traw", (int)g_report.z_raw);
-	warnx("gyro range: %8.4f rad/s (%d deg/s)", (double)g_report.range_rad_s,
-	      (int)((g_report.range_rad_s / M_PI_F) * 180.0f + 0.5f));
-
-	warnx("temp:  \t%8.4f\tdeg celsius", (double)a_report.temperature);
-	warnx("temp:  \t%d\traw 0x%0x", (short)a_report.temperature_raw, (unsigned short)a_report.temperature_raw);
+	print_message(g_report);
 
 	/* reset to default polling */
 	if (ioctl(fd, SENSORIOCSPOLLRATE, SENSOR_POLLRATE_DEFAULT) < 0) {
